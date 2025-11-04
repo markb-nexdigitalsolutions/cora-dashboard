@@ -134,4 +134,3 @@ else:
 # Footer
 st.markdown("---")
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Made for ApexxAdams")
-```
