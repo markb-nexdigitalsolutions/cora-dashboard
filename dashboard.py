@@ -53,17 +53,7 @@ agent_page = st.sidebar.selectbox(
 
 # ---- Quick Actions ----
 st.sidebar.subheader("Quick Actions")
-# Test section - remove after debugging
-if st.sidebar.button("TEST WEBHOOK"):
-    st.write("Button clicked!")
-    try:
-        test_url = "https://hackett2k.app.n8n.cloud/webhook/run-cora"
-        st.write(f"Sending to: {test_url}")
-        response = requests.post(test_url, timeout=30)
-        st.write(f"Status: {response.status_code}")
-        st.write(f"Response: {response.text[:500]}")
-    except Exception as e:
-        st.write(f"Error: {str(e)}")
+
 # -------------------------
 # CORA Manual Trigger Function
 # -------------------------
@@ -72,16 +62,19 @@ def trigger_cora():
         url = st.secrets["CORA_WEBHOOK_URL"]
         
         with st.spinner("Running CORA..."):
-            res = requests.post(url, timeout=30)
+            response = requests.post(url, timeout=30)
         
-        if res.status_code == 200:
-            leads = res.json()
-            st.success(f"✅ CORA generated {len(leads)} new leads!")
+        if response.status_code == 200:
+            try:
+                leads = response.json()
+                st.success(f"✅ CORA generated {len(leads)} new leads!")
+            except:
+                st.success("✅ CORA workflow started successfully!")
         else:
-            st.error(f"Failed → {res.status_code}: {res.text}")
-
+            st.error(f"Failed → {response.status_code}")
+            
     except Exception as e:
-        st.error(f"Error triggering CORA: {e}")
+        st.error(f"Error: {str(e)}")
 
 # ---- RUN CORA ----
 if st.sidebar.button("Run CORA Now"):
@@ -276,6 +269,7 @@ elif agent_page == "OPSI (Operations)":
                         st.success("Task created successfully.")
                         st.cache_data.clear()
                         st.rerun()
+
 
 
 
