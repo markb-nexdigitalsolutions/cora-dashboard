@@ -61,11 +61,12 @@ def trigger_cora():
     try:
         url = st.secrets["CORA_WEBHOOK_URL"]  # Must be in Streamlit secrets
         res = requests.post(url, timeout=30)
+        st.write("DEBUG Webhook Response:", res.status_code, res.text)
 
         if res.status_code == 200:
             st.success("CORA has started running.")
         else:
-            st.error(f"Failed to trigger CORA → {res.status_code}: {res.text}")
+            st.error(f"Failed → {res.status_code}: {res.text}")
 
     except Exception as e:
         st.error(f"Error triggering CORA: {e}")
@@ -263,3 +264,4 @@ elif agent_page == "OPSI (Operations)":
                         st.success("Task created successfully.")
                         st.cache_data.clear()
                         st.rerun()
+
