@@ -377,13 +377,13 @@ elif selected_agent == "OPSI (Operations)":
 
         title = st.text_input("Task Title*")
 
-        # Dropdowns with "Select option" placeholder
+        # Dropdowns with “Select option”
         task_type = st.selectbox(
             "Task Type*",
             ["Select option", "RFP Submission", "Contract Renewal", "Audit", "Compliance Report"]
         )
 
-        assigned_to = st.text_input("Assigned To*", placeholder="Enter Team Member Name")
+        assigned_to = st.text_input("Assigned To*", placeholder="Enter name")
 
         deadline = st.date_input("Deadline Date*")
 
@@ -451,5 +451,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
