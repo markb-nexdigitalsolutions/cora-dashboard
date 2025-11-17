@@ -2,6 +2,17 @@ import streamlit as st
 import pandas as pd
 from utils import load_opsi_data, send_opsi_task
 
+def get_opsi_status():
+    return "Active"
+
+def load_opsi_tasks():
+    try:
+        return load_opsi_data()
+    except:
+        return pd.DataFrame()
+
+def create_opsi_task(task_data):
+    return send_opsi_task(task_data)
 
 def opsi_page():
     st.header("OPSI - Operations & Policy System")
