@@ -346,36 +346,46 @@ elif selected_agent == "MARK (Marketing AI)":
 elif selected_agent == "OPSI (Operations)":
 
     st.header("OPSI - Operations & Policy System")
+
     opsi_df = load_opsi_data()
 
+    # SAFE column detection (this prevents KeyError)
+    status_col = "Status " if "Status " in opsi_df.columns else "Status"
+    priority_col = "Priority " if "Priority " in opsi_df.columns else "Priority"
+
     col1, col2, col3, col4 = st.columns(4)
+
     with col1:
-        st.metric("Pending", len(opsi_df[opsi_df["Status "] == "New"]) if not opsi_df.empty else 0)
+        pending = len(opsi_df[opsi_df[status_col] == "New"]) if not opsi_df.empty else 0
+        st.metric("Pending", pending)
+
     with col2:
-        st.metric("In Progress", len(opsi_df[opsi_df["Status "] == "In Progress"]) if not opsi_df.empty else 0)
+        in_progress = len(opsi_df[opsi_df[status_col] == "In Progress"]) if not opsi_df.empty else 0
+        st.metric("In Progress", in_progress)
+
     with col3:
-        st.metric("High Priority", len(opsi_df[opsi_df["Priority "] == "High"]) if not opsi_df.empty else 0)
+        high = len(opsi_df[opsi_df[priority_col] == "High"]) if not opsi_df.empty else 0
+        st.metric("High Priority", high)
+
     with col4:
         st.metric("Total Tasks", len(opsi_df))
 
     st.markdown("---")
 
-    with st.expander("➕ Create Task"):
-        with st.form("task_form"):
+    with st.expander("➕ Create New Task"):
+        with st.form("new_task_form"):
             title = st.text_input("Task Title*")
             task_type = st.selectbox("Task Type", ["RFP Submission", "Contract Renewal", "Audit", "Compliance Report"])
             assigned_to = st.text_input("Assigned To", "J Hackett")
-            deadline = st.date_input("Deadline")
+            deadline = st.date_input("Deadline Date")
             priority = st.selectbox("Priority", ["High", "Medium", "Low"])
             notes = st.text_area("Notes")
 
             submitted = st.form_submit_button("Create Task")
 
             if submitted:
-                if not title:
-                    st.error("Task title is required.")
-                else:
-                    payload = {
+                if title:
+                    task_data = {
                         "title": title,
                         "taskType": task_type,
                         "assignedTo": assigned_to,
@@ -383,18 +393,21 @@ elif selected_agent == "OPSI (Operations)":
                         "priority": priority,
                         "notes": notes
                     }
-                    result = create_opsi_task(payload)
+                    result = create_opsi_task(task_data)
                     if result:
-                        st.success("Task created successfully.")
+                        st.success("✅ Task created successfully.")
                         st.cache_data.clear()
                         st.rerun()
+                else:
+                    st.error("Task title is required.")
 
     st.markdown("---")
     st.subheader("Active Tasks")
+
     if not opsi_df.empty:
         st.dataframe(opsi_df, use_container_width=True, hide_index=True)
     else:
-        st.info("No tasks yet.")
+        st.info("No tasks found.")
 
 # ----------------------------------------------------
 # FOOTER
@@ -409,3 +422,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
