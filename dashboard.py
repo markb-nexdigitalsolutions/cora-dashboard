@@ -5,6 +5,9 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 import requests
 
+# ----------------------------------------------------
+# STREAMLIT CONFIG
+# ----------------------------------------------------
 st.set_page_config(
     page_title="ApexxAdams Command Center",
     page_icon="⚡",
@@ -12,6 +15,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ----------------------------------------------------
+# STYLES
+# ----------------------------------------------------
 st.markdown("""
 <style>
     .main-header {
@@ -54,12 +60,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ----------------------------------------------------
+# GOOGLE SHEETS CONNECTION
+# ----------------------------------------------------
 @st.cache_resource
 def connect_to_sheets():
     try:
         credentials_dict = dict(st.secrets["google_credentials"])
-        scope = ['https://spreadsheets.google.com/feeds',
-                 'https://www.googleapis.com/auth/drive']
+        scope = [
+            'https://spreadsheets.google.com/feeds',
+            'https://www.googleapis.com/auth/drive'
+        ]
         credentials = Credentials.from_service_account_info(credentials_dict, scopes=scope)
         client = gspread.authorize(credentials)
         return client
@@ -67,6 +78,9 @@ def connect_to_sheets():
         st.error(f"Connection error: {e}")
         return None
 
+# ----------------------------------------------------
+# LOAD CORA SHEET
+# ----------------------------------------------------
 @st.cache_data(ttl=300)
 def load_cora_data():
     try:
@@ -76,28 +90,22 @@ def load_cora_data():
             sheet = client.open_by_key(sheet_id).sheet1
             data = sheet.get_all_records()
             df = pd.DataFrame(data)
-            df.columns = df.columns.str.lower().str.replace(' ', '_')
+            df.columns = df.columns.str.lower().str.replace(" ", "_")
             return df
         return pd.DataFrame()
     except Exception as e:
-        st.error(f"Error loading data: {e}")
+        st.error(f"Error loading CORA data: {e}")
         return pd.DataFrame()
 
-def create_opsi_task(task_data):
-    webhook_url = "https://hackett2k.app.n8n.cloud/webhook/opsi-create-task"
-    try:
-        response = requests.post(webhook_url, json=task_data)
-        return response.json()
-    except Exception as e:
-        st.error(f"Error creating task: {e}")
-        return None
-
+# ----------------------------------------------------
+# LOAD OPSI SHEET
+# ----------------------------------------------------
 @st.cache_data(ttl=60)
 def load_opsi_data():
     try:
+        sheet_id = st.secrets["OPSI_SHEET_ID"]
         client = connect_to_sheets()
         if client:
-            sheet_id = "1kt4z_zcfiX_Xx3jhahihWMB5LMrh0-GpmQDBxKjSl4A"
             sheet = client.open_by_key(sheet_id).sheet1
             data = sheet.get_all_records()
             return pd.DataFrame(data)
@@ -106,9 +114,29 @@ def load_opsi_data():
         st.error(f"Error loading OPSI data: {e}")
         return pd.DataFrame()
 
+# (MARK will get its own loader later if needed)
+
+# ----------------------------------------------------
+# OPSI TASK CREATION (n8n webhook)
+# ----------------------------------------------------
+def create_opsi_task(task_data):
+    webhook_url = "https://hackett2k.app.n8n.cloud/webhook/opsi-create-task"
+    try:
+        response = requests.post(webhook_url, json=task_data)
+        return response.json()
+    except Exception as e:
+        st.error(f"Error creating OPSI task: {e}")
+        return None
+
+# ----------------------------------------------------
+# MAIN HEADER
+# ----------------------------------------------------
 st.markdown('<p class="main-header">ApexxAdams Command Center</p>', unsafe_allow_html=True)
 st.write("Multi-Agent System Dashboard - CORA | MARK | OPSI")
 
+# ----------------------------------------------------
+# SIDEBAR
+# ----------------------------------------------------
 st.sidebar.title("Agent Control Panel")
 st.sidebar.markdown("---")
 
@@ -128,20 +156,24 @@ selected_agent = st.sidebar.selectbox(
     ["Dashboard Overview", "CORA (Lead Generation)", "MARK (Marketing AI)", "OPSI (Operations)"]
 )
 
+# ----------------------------------------------------
+# QUICK ACTIONS
+# ----------------------------------------------------
 st.sidebar.markdown("---")
-
 st.sidebar.subheader("Quick Actions")
+
 if st.sidebar.button("Run CORA Now"):
     st.sidebar.success("CORA workflow triggered!")
+
 if st.sidebar.button("Ask MARK"):
     st.sidebar.info("MARK chat opening...")
+
 if st.sidebar.button("View OPSI Tasks"):
     st.sidebar.info("Loading tasks...")
 
-# ------------------------------
+# ----------------------------------------------------
 # DASHBOARD OVERVIEW
-# ------------------------------
-
+# ----------------------------------------------------
 if selected_agent == "Dashboard Overview":
 
     cora_df = load_cora_data()
@@ -149,28 +181,29 @@ if selected_agent == "Dashboard Overview":
 
     col1, col2, col3, col4 = st.columns(4)
 
+    # STATUS COLUMN HANDLING
+    status_col = "Status " if "Status " in opsi_df.columns else "Status"
+    priority_col = "Priority " if "Priority " in opsi_df.columns else "Priority"
+
     with col1:
-        status_col = 'Status ' if 'Status ' in opsi_df.columns else 'Status'
-        pending = len(opsi_df[opsi_df[status_col] == 'New']) if not opsi_df.empty and status_col in opsi_df.columns else 0
+        pending = len(opsi_df[opsi_df[status_col] == "New"]) if not opsi_df.empty else 0
         st.metric("Pending Tasks", pending)
 
     with col2:
-        in_progress = len(opsi_df[opsi_df[status_col] == 'In Progress']) if not opsi_df.empty and status_col in opsi_df.columns else 0
+        in_progress = len(opsi_df[opsi_df[status_col] == "In Progress"]) if not opsi_df.empty else 0
         st.metric("In Progress", in_progress)
 
     with col3:
-        priority_col = 'Priority ' if 'Priority ' in opsi_df.columns else 'Priority'
-        high = len(opsi_df[opsi_df[priority_col] == 'High']) if not opsi_df.empty and priority_col in opsi_df.columns else 0
+        high = len(opsi_df[opsi_df[priority_col] == "High"]) if not opsi_df.empty else 0
         st.metric("High Priority", high)
 
     with col4:
-        response_rate = "68%" if not cora_df.empty else "N/A"
-        st.metric("Overall Performance", response_rate)
+        st.metric("Overall Performance", "68%" if not cora_df.empty else "N/A")
 
     st.markdown("---")
 
+    # AGENT CARDS
     col1, col2, col3 = st.columns(3)
-
     with col1:
         st.markdown(f"""
         <div class="agent-card">
@@ -203,12 +236,12 @@ if selected_agent == "Dashboard Overview":
 
     st.markdown("---")
 
+    # RECENT LEADS + TASKS
     col1, col2 = st.columns(2)
-
     with col1:
         st.subheader("CORA Recent Leads")
         if not cora_df.empty:
-            recent = cora_df.tail(5)[['name', 'organization', 'email']]
+            recent = cora_df.tail(5)[["name", "organization", "email"]]
             st.dataframe(recent, use_container_width=True, hide_index=True)
         else:
             st.info("No leads yet. Run CORA to generate leads.")
@@ -216,163 +249,133 @@ if selected_agent == "Dashboard Overview":
     with col2:
         st.subheader("OPSI Upcoming Tasks")
         if not opsi_df.empty:
-            display_cols = ['Title', 'Deadline Date', 'Priority ']
-            available_cols = [col for col in display_cols if col in opsi_df.columns]
-            st.dataframe(opsi_df[available_cols].head(5), use_container_width=True, hide_index=True)
+            display_cols = ["Title", "Deadline Date", priority_col]
+            available = [c for c in display_cols if c in opsi_df.columns]
+            st.dataframe(opsi_df[available].head(5), use_container_width=True, hide_index=True)
         else:
             st.info("No tasks scheduled.")
 
-# ------------------------------
+# ----------------------------------------------------
 # CORA PAGE
-# ------------------------------
-
+# ----------------------------------------------------
 elif selected_agent == "CORA (Lead Generation)":
 
     st.header("CORA - Lead Generation Dashboard")
-
     df = load_cora_data()
 
     if not df.empty:
         col1, col2, col3, col4 = st.columns(4)
-
         with col1:
             st.metric("Total Leads", len(df))
 
         with col2:
-            today = datetime.now().strftime('%Y-%m-%d')
-            today_leads = df[df['timestamp'].str.contains(today, na=False)] if 'timestamp' in df.columns else pd.DataFrame()
+            today = datetime.now().strftime("%Y-%m-%d")
+            today_leads = df[df["timestamp"].str.contains(today, na=False)] if "timestamp" in df.columns else 0
             st.metric("Today", len(today_leads))
 
         with col3:
-            cities = df['organization'].str.contains('City', case=False, na=False).sum() if 'organization' in df.columns else 0
+            cities = df["organization"].str.contains("City", case=False, na=False).sum() if "organization" in df.columns else 0
             st.metric("Cities", cities)
 
         with col4:
-            churches = df['organization'].str.contains('Church', case=False, na=False).sum() if 'organization' in df.columns else 0
+            churches = df["organization"].str.contains("Church", case=False, na=False).sum() if "organization" in df.columns else 0
             st.metric("Churches", churches)
 
         st.markdown("---")
 
-        search = st.text_input("Search leads by name, email, or organization", "")
+        search = st.text_input("Search leads by name, email, or organization")
+        filtered = df.copy()
 
-        filtered_df = df.copy()
         if search:
             mask = (
-                filtered_df['name'].str.contains(search, case=False, na=False) |
-                filtered_df['email'].str.contains(search, case=False, na=False) |
-                filtered_df['organization'].str.contains(search, case=False, na=False)
+                df["name"].str.contains(search, case=False, na=False)
+                | df["email"].str.contains(search, case=False, na=False)
+                | df["organization"].str.contains(search, case=False, na=False)
             )
-            filtered_df = filtered_df[mask]
+            filtered = df[mask]
 
-        st.subheader(f"All Leads ({len(filtered_df)})")
+        st.subheader(f"All Leads ({len(filtered)})")
 
-        display_columns = ['name', 'title', 'organization', 'email', 'suggested_action', 'timestamp']
-        available_columns = [col for col in display_columns if col in filtered_df.columns]
+        display_cols = ["name", "title", "organization", "email", "suggested_action", "timestamp"]
+        available = [c for c in display_cols if c in filtered.columns]
+        st.dataframe(filtered[available], use_container_width=True, hide_index=True)
 
-        st.dataframe(filtered_df[available_columns], use_container_width=True, hide_index=True)
-
-        csv = filtered_df.to_csv(index=False)
-        st.download_button("Export CSV", csv, f"cora_leads_{datetime.now().strftime('%Y%m%d')}.csv", "text/csv")
+        st.download_button(
+            "Export CSV",
+            filtered.to_csv(index=False),
+            f"cora_leads_{datetime.now().strftime('%Y%m%d')}.csv",
+            "text/csv"
+        )
 
     else:
-        st.warning("No leads data available.")
-        st.info("Run the CORA workflow in n8n to generate leads.")
+        st.warning("No CORA data available.")
 
-# ------------------------------
+# ----------------------------------------------------
 # MARK PAGE
-# ------------------------------
-
+# ----------------------------------------------------
 elif selected_agent == "MARK (Marketing AI)":
 
     st.header("MARK - Marketing & Engagement AI")
-    st.write("Your AI Marketing Assistant - Powered by GPT-4o")
 
-    col1, col2 = st.columns([2, 1])
+    st.markdown("""
+    ### About MARK
+    MARK helps with:
+    • Email/SMS campaigns  
+    • Follow-up automation  
+    • Engagement analytics  
+    • Human-like responses  
 
-    with col1:
-        st.markdown("""
-        ### About MARK
-        MARK is your AI-powered marketing assistant that helps you:
-        - Launch email/SMS campaigns to engage prospects
-        - Schedule meetings and follow-ups automatically
-        - Track engagement metrics in real-time
-        - Respond like a human expert
-
-        **Status:** Setup in progress  
-        **AI Model:** GPT-4o  
-        **Integrations:** GoHighLevel, Gmail, Calendar
-        """)
-
-    with col2:
-        st.info("Coming Soon!\n\nMARK is being configured.")
+    **Status:** Setup in progress  
+    **AI Model:** GPT-4o  
+    **Integrations:** GoHighLevel, Gmail, Calendar
+    """)
 
     st.markdown("---")
-
     st.subheader("Chat with MARK")
 
-    user_input = st.text_input("Ask MARK anything about marketing...", placeholder="e.g., How's our email campaign performing?")
-
+    user_input = st.text_input("Ask MARK anything...")
     if user_input:
         with st.chat_message("user"):
             st.write(user_input)
-
         with st.chat_message("assistant"):
-            st.write("Good day. I'm MARK, your marketing intelligence system.")
-            st.write(f"I've analyzed your query: '{user_input}'")
-            st.write("I'm still being calibrated. Check the CORA dashboard for recent lead activity.")
+            st.write("I’m MARK. I'm still being calibrated.")
 
-    st.markdown("---")
-
-    st.subheader("Campaign Performance")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Active Campaigns", "Coming Soon")
-    with col2:
-        st.metric("Total Sent", "Coming Soon")
-    with col3:
-        st.metric("Engagement Rate", "Coming Soon")
-
-# ------------------------------
+# ----------------------------------------------------
 # OPSI PAGE
-# ------------------------------
-
+# ----------------------------------------------------
 elif selected_agent == "OPSI (Operations)":
 
-    st.header("OPSI - Operations & Policy System Integrator")
-    st.write("Internal Workflow & Compliance Management")
-
+    st.header("OPSI - Operations & Policy System")
     opsi_df = load_opsi_data()
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        pending = len(opsi_df[opsi_df['Status '] == 'New']) if not opsi_df.empty else 0
-        st.metric("Pending Tasks", pending)
+        st.metric("Pending", len(opsi_df[opsi_df["Status "] == "New"]) if not opsi_df.empty else 0)
     with col2:
-        in_progress = len(opsi_df[opsi_df['Status '] == 'In Progress']) if not opsi_df.empty else 0
-        st.metric("In Progress", in_progress)
+        st.metric("In Progress", len(opsi_df[opsi_df["Status "] == "In Progress"]) if not opsi_df.empty else 0)
     with col3:
-        high = len(opsi_df[opsi_df['Priority '] == 'High']) if not opsi_df.empty else 0
-        st.metric("High Priority", high)
+        st.metric("High Priority", len(opsi_df[opsi_df["Priority "] == "High"]) if not opsi_df.empty else 0)
     with col4:
         st.metric("Total Tasks", len(opsi_df))
 
     st.markdown("---")
 
-    with st.expander("➕ Create New Task"):
-        with st.form("new_task_form"):
+    with st.expander("➕ Create Task"):
+        with st.form("task_form"):
             title = st.text_input("Task Title*")
             task_type = st.selectbox("Task Type", ["RFP Submission", "Contract Renewal", "Audit", "Compliance Report"])
             assigned_to = st.text_input("Assigned To", "J Hackett")
-            deadline = st.date_input("Deadline Date")
+            deadline = st.date_input("Deadline")
             priority = st.selectbox("Priority", ["High", "Medium", "Low"])
             notes = st.text_area("Notes")
 
             submitted = st.form_submit_button("Create Task")
 
             if submitted:
-                if title:
-                    task_data = {
+                if not title:
+                    st.error("Task title is required.")
+                else:
+                    payload = {
                         "title": title,
                         "taskType": task_type,
                         "assignedTo": assigned_to,
@@ -380,28 +383,28 @@ elif selected_agent == "OPSI (Operations)":
                         "priority": priority,
                         "notes": notes
                     }
-                    result = create_opsi_task(task_data)
+                    result = create_opsi_task(payload)
                     if result:
-                        st.success(f"✅ Task created: {result.get('taskId')}")
+                        st.success("Task created successfully.")
                         st.cache_data.clear()
                         st.rerun()
-                else:
-                    st.error("Title is required")
 
     st.markdown("---")
     st.subheader("Active Tasks")
-
     if not opsi_df.empty:
         st.dataframe(opsi_df, use_container_width=True, hide_index=True)
     else:
-        st.info("No tasks yet. Create your first task above.")
+        st.info("No tasks yet.")
 
+# ----------------------------------------------------
+# FOOTER
+# ----------------------------------------------------
 st.markdown("---")
 st.markdown(
     f"""
-    <div style='text-align: center; color: #666; padding: 1rem;'>
-        <p><strong>ApexxAdams Multi-Agent Command Center</strong></p>
-        <p>CORA | MARK | OPSI | Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+    <div style='text-align:center; color:#666; padding:1rem;'>
+        <strong>ApexxAdams Multi-Agent Command Center</strong><br>
+        Last updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
     </div>
     """,
     unsafe_allow_html=True
