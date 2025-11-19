@@ -502,6 +502,12 @@ elif selected_page == "Manage Tasks":
     # ========================================
     # UPDATE TASK SECTION
     # ========================================
+    
+    # Show success message if it exists in session state
+    if 'update_success_msg' in st.session_state:
+        st.success(st.session_state.update_success_msg)
+        del st.session_state.update_success_msg
+    
     with st.expander("✏️ Update Task", expanded=False):
         st.markdown("**Select a task to update**")
         
@@ -538,7 +544,7 @@ elif selected_page == "Manage Tasks":
                 selected_task_label = st.selectbox(
                     "Select Task:",
                     options=list(task_options.keys()),
-                    key="task_selector"
+                    key=f"task_selector_{len(task_options)}"
                 )
                 
                 if selected_task_label:
@@ -603,7 +609,8 @@ elif selected_page == "Manage Tasks":
                             result = update_opsi_task(update_data)
                             
                             if result:
-                                st.success(f"✅ Task {selected_task_id} updated successfully!")
+                                # Store success message in session state before rerun
+                                st.session_state.update_success_msg = f"✅ Task {selected_task_id} updated successfully!"
                                 # Clear search on successful update
                                 st.session_state.task_id_search = ""
                                 st.cache_data.clear()
